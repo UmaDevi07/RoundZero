@@ -12,7 +12,7 @@ Freshers get rejected in the interview room, not on the resume. Most mock-interv
 
 RoundZero is a voice-to-voice AI mock interview built around **your resume and the job description you are applying to**.
 
-- An AI interviewer (a avatar, voice only, no video) asks questions based on the gaps between your resume and the JD.
+- An AI interviewer (a cartoon avatar, voice only, no video) asks questions based on the gaps between your resume and the JD.
 - Two agents score your answers:
   - **Hiring Manager agent:** judges whether the answer would pass a real interview.
   - **HR Coach agent:** tells you how to fix it.
