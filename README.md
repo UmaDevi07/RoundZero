@@ -41,4 +41,4 @@ See [PRD.md](PRD.md) for the full product spec.
 
 ## Author
 
-Uma Devi, B.Tech CSE, Hyderabad
+Uma Devi, B.Tech CSE, Hyderabad| [LinkedIn](https://linkedin.com/in/uma-devi-2a5284405)
