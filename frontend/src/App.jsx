@@ -1,8 +1,16 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 
 export default function App() {
   const [resume, setResume] = useState(null)
   const [jd, setJd] = useState('')
+  const [backend, setBackend] = useState('checking...')
+
+  useEffect(() => {
+    fetch('http://localhost:8000/health')
+      .then((res) => res.json())
+      .then((data) => setBackend(data.status === 'ok' ? 'connected' : 'error'))
+      .catch(() => setBackend('offline'))
+  }, [])
 
   return (
     <div className="min-h-screen bg-gray-50 flex items-center justify-center p-6">
@@ -11,6 +19,7 @@ export default function App() {
         <p className="text-gray-600">
           Upload your resume and paste the job description. We'll interview you on the gaps.
         </p>
+        <p className="text-sm text-gray-500">Backend: {backend}</p>
 
         <div>
           <label className="block font-medium mb-1">Resume (PDF)</label>
