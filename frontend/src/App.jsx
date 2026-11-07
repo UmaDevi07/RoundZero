@@ -4,6 +4,8 @@ export default function App() {
   const [resume, setResume] = useState(null)
   const [jd, setJd] = useState('')
   const [backend, setBackend] = useState('checking...')
+  const [text, setText] = useState('')
+  const [loading, setLoading] = useState(false)
 
   useEffect(() => {
     fetch('http://localhost:8000/health')
@@ -11,6 +13,24 @@ export default function App() {
       .then((data) => setBackend(data.status === 'ok' ? 'connected' : 'error'))
       .catch(() => setBackend('offline'))
   }, [])
+
+  async function handleStart() {
+    setLoading(true)
+    setText('')
+    try {
+      const form = new FormData()
+      form.append('resume', resume)
+      const res = await fetch('http://localhost:8000/extract', {
+        method: 'POST',
+        body: form,
+      })
+      const data = await res.json()
+      setText(data.text || 'No text found. This PDF may be a scanned image.')
+    } catch {
+      setText('Could not read the PDF. Is the backend running?')
+    }
+    setLoading(false)
+  }
 
   return (
     <div className="min-h-screen bg-gray-50 flex items-center justify-center p-6">
@@ -44,11 +64,21 @@ export default function App() {
         </div>
 
         <button
-          disabled={!resume || !jd.trim()}
+          onClick={handleStart}
+          disabled={!resume || !jd.trim() || loading}
           className="w-full bg-blue-600 text-white rounded-lg py-2 font-medium disabled:opacity-40"
         >
-          Start interview
+          {loading ? 'Reading resume...' : 'Start interview'}
         </button>
+
+        {text && (
+          <div>
+            <h2 className="font-medium mb-1">Extracted resume text</h2>
+            <pre className="whitespace-pre-wrap text-sm bg-gray-100 rounded-lg p-3 max-h-64 overflow-auto">
+              {text}
+            </pre>
+          </div>
+        )}
       </div>
     </div>
   )
