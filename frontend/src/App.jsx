@@ -4,7 +4,8 @@ export default function App() {
   const [resume, setResume] = useState(null)
   const [jd, setJd] = useState('')
   const [backend, setBackend] = useState('checking...')
-  const [text, setText] = useState('')
+  const [gaps, setGaps] = useState([])
+  const [message, setMessage] = useState('')
   const [loading, setLoading] = useState(false)
 
   useEffect(() => {
@@ -16,18 +17,21 @@ export default function App() {
 
   async function handleStart() {
     setLoading(true)
-    setText('')
+    setGaps([])
+    setMessage('')
     try {
       const form = new FormData()
       form.append('resume', resume)
-      const res = await fetch('http://localhost:8000/extract', {
+      form.append('jd', jd)
+      const res = await fetch('http://localhost:8000/gaps', {
         method: 'POST',
         body: form,
       })
       const data = await res.json()
-      setText(data.text || 'No text found. This PDF may be a scanned image.')
+      if (data.error) setMessage(data.error)
+      setGaps(data.gaps || [])
     } catch {
-      setText('Could not read the PDF. Is the backend running?')
+      setMessage('Something went wrong. Is the backend running?')
     }
     setLoading(false)
   }
@@ -68,15 +72,22 @@ export default function App() {
           disabled={!resume || !jd.trim() || loading}
           className="w-full bg-blue-600 text-white rounded-lg py-2 font-medium disabled:opacity-40"
         >
-          {loading ? 'Reading resume...' : 'Start interview'}
+          {loading ? 'Analyzing...' : 'Start interview'}
         </button>
 
-        {text && (
-          <div>
-            <h2 className="font-medium mb-1">Extracted resume text</h2>
-            <pre className="whitespace-pre-wrap text-sm bg-gray-100 rounded-lg p-3 max-h-64 overflow-auto">
-              {text}
-            </pre>
+        {message && <p className="text-sm text-red-600">{message}</p>}
+
+        {gaps.length > 0 && (
+          <div className="space-y-3">
+            <h2 className="font-medium">Gaps found</h2>
+            {gaps.map((g, i) => (
+              <div key={i} className="border rounded-lg p-3 text-sm space-y-1">
+                <p><b>Job asks:</b> {g.requirement}</p>
+                <p><b>Resume shows:</b> {g.evidence}</p>
+                <p><b>Gap:</b> {g.gap}</p>
+                <p className="text-blue-700"><b>Question:</b> {g.question}</p>
+              </div>
+            ))}
           </div>
         )}
       </div>
