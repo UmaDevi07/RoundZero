@@ -1,13 +1,30 @@
 import { useState, useEffect } from 'react'
 
-function speak(text) {
+/*function speak(text) {
   window.speechSynthesis.cancel()
   const utterance = new SpeechSynthesisUtterance(text)
   utterance.lang = 'en-IN'
   utterance.rate = 0.95
   window.speechSynthesis.speak(utterance)
+}*/
+function pickVoice() {
+  const voices = window.speechSynthesis.getVoices()
+  const preferred = ['Neerja', 'Natural', 'Aria', 'Jenny', 'Google UK English Female', 'Zira', 'Heera']
+  for (const name of preferred) {
+    const match = voices.find((v) => v.name.includes(name))
+    if (match) return match
+  }
+  return voices.find((v) => v.lang.startsWith('en')) || null
 }
 
+function speak(text) {
+  window.speechSynthesis.cancel()
+  const utterance = new SpeechSynthesisUtterance(text)
+  const voice = pickVoice()
+  if (voice) utterance.voice = voice
+  utterance.rate = 1
+  window.speechSynthesis.speak(utterance)
+}
 export default function App() {
   const [resume, setResume] = useState(null)
   const [jd, setJd] = useState('')
