@@ -1,5 +1,13 @@
 import { useState, useEffect } from 'react'
 
+function speak(text) {
+  window.speechSynthesis.cancel()
+  const utterance = new SpeechSynthesisUtterance(text)
+  utterance.lang = 'en-IN'
+  utterance.rate = 0.95
+  window.speechSynthesis.speak(utterance)
+}
+
 export default function App() {
   const [resume, setResume] = useState(null)
   const [jd, setJd] = useState('')
@@ -20,6 +28,13 @@ export default function App() {
       .then((data) => setBackend(data.status === 'ok' ? 'connected' : 'error'))
       .catch(() => setBackend('offline'))
   }, [])
+
+  useEffect(() => {
+    if (phase === 'interview' && questions[index]) {
+      speak(questions[index].question)
+    }
+    return () => window.speechSynthesis.cancel()
+  }, [phase, index, gaps])
 
   async function handleStart() {
     setLoading(true)
@@ -123,6 +138,12 @@ export default function App() {
             <div className="bg-blue-50 rounded-lg p-4">
               <p className="text-lg font-medium text-blue-900">{questions[index].question}</p>
             </div>
+            <button
+              onClick={() => speak(questions[index].question)}
+              className="text-sm text-blue-600 underline"
+            >
+              Replay question
+            </button>
             <p className="text-xs text-gray-500">
               Why we ask: {questions[index].gap}
             </p>
