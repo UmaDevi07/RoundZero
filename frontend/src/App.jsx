@@ -1,12 +1,8 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 
-/*function speak(text) {
-  window.speechSynthesis.cancel()
-  const utterance = new SpeechSynthesisUtterance(text)
-  utterance.lang = 'en-IN'
-  utterance.rate = 0.95
-  window.speechSynthesis.speak(utterance)
-}*/
+const SpeechRecognition =
+  window.SpeechRecognition || window.webkitSpeechRecognition
+
 function pickVoice() {
   const voices = window.speechSynthesis.getVoices()
   const preferred = ['Neerja', 'Natural', 'Aria', 'Jenny', 'Google UK English Female', 'Zira', 'Heera']
@@ -25,6 +21,7 @@ function speak(text) {
   utterance.rate = 1
   window.speechSynthesis.speak(utterance)
 }
+
 export default function App() {
   const [resume, setResume] = useState(null)
   const [jd, setJd] = useState('')
@@ -36,6 +33,9 @@ export default function App() {
   const [index, setIndex] = useState(0)
   const [answer, setAnswer] = useState('')
   const [answers, setAnswers] = useState([])
+  const [listening, setListening] = useState(false)
+  const recognitionRef = useRef(null)
+  const baseRef = useRef('')
 
   const questions = gaps.slice(0, 3)
 
@@ -50,8 +50,45 @@ export default function App() {
     if (phase === 'interview' && questions[index]) {
       speak(questions[index].question)
     }
-    return () => window.speechSynthesis.cancel()
+    return () => {
+      window.speechSynthesis.cancel()
+      stopListening()
+    }
   }, [phase, index, gaps])
+
+  function startListening() {
+    if (!SpeechRecognition) {
+      setMessage('Voice input works in Chrome or Edge.')
+      return
+    }
+    window.speechSynthesis.cancel()
+    const rec = new SpeechRecognition()
+    rec.lang = 'en-IN'
+    rec.continuous = true
+    rec.interimResults = true
+    baseRef.current = answer
+    rec.onresult = (e) => {
+      let text = ''
+      for (let i = 0; i < e.results.length; i++) {
+        text += e.results[i][0].transcript
+      }
+      setAnswer((baseRef.current ? baseRef.current + ' ' : '') + text)
+    }
+    rec.onend = () => setListening(false)
+    rec.onerror = () => setListening(false)
+    rec.start()
+    recognitionRef.current = rec
+    setListening(true)
+    setMessage('')
+  }
+
+  function stopListening() {
+    if (recognitionRef.current) {
+      recognitionRef.current.stop()
+      recognitionRef.current = null
+    }
+    setListening(false)
+  }
 
   async function handleStart() {
     setLoading(true)
@@ -82,6 +119,7 @@ export default function App() {
   }
 
   function handleNext() {
+    stopListening()
     const updated = [...answers, { question: questions[index].question, answer }]
     setAnswers(updated)
     setAnswer('')
@@ -93,6 +131,7 @@ export default function App() {
   }
 
   function handleRestart() {
+    stopListening()
     setPhase('input')
     setGaps([])
     setAnswers([])
@@ -164,11 +203,24 @@ export default function App() {
             <p className="text-xs text-gray-500">
               Why we ask: {questions[index].gap}
             </p>
+
+            <button
+              onClick={listening ? stopListening : startListening}
+              className={
+                'w-full rounded-lg py-2 font-medium text-white ' +
+                (listening ? 'bg-red-600' : 'bg-green-600')
+              }
+            >
+              {listening ? 'Stop listening' : 'Speak your answer'}
+            </button>
+            {listening && <p className="text-sm text-red-600">Listening...</p>}
+            {message && <p className="text-sm text-red-600">{message}</p>}
+
             <textarea
               value={answer}
               onChange={(e) => setAnswer(e.target.value)}
               rows={6}
-              placeholder="Type your answer here"
+              placeholder="Your answer appears here. You can also type."
               className="w-full border rounded-lg p-3 text-sm"
             />
             <button
