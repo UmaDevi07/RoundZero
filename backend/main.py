@@ -116,3 +116,33 @@ def score(req: ScoreRequest):
         return {"score": int(data["score"]), "reason": str(data["reason"])}
     except (json.JSONDecodeError, KeyError, ValueError, TypeError):
         return {"score": None, "reason": "Could not score this answer. Try again."}
+
+COACH_PROMPT = """You are a supportive HR coach helping a fresher improve interview answers.
+The answer was captured by speech recognition, so ignore misheard words.
+Never invent experience for the candidate. Give:
+1. "fix": one or two sentences on the most important thing to improve.
+2. "try_saying": a short answer template (2 to 3 sentences) with [brackets] where
+the candidate fills in their own real details.
+Return ONLY JSON in exactly this shape:
+{"fix": "...", "try_saying": "..."}"""
+
+
+@app.post("/coach")
+def coach(req: ScoreRequest):
+    prompt = (
+        COACH_PROMPT
+        + "\n\nQUESTION: " + req.question
+        + "\nWHY IT WAS ASKED: " + req.gap
+        + "\nANSWER: " + req.answer[:3000]
+    )
+    client = genai.Client()
+    response = client.models.generate_content(
+        model=MODEL,
+        contents=prompt,
+        config=types.GenerateContentConfig(response_mime_type="application/json"),
+    )
+    try:
+        data = json.loads(response.text)
+        return {"fix": str(data["fix"]), "try_saying": str(data["try_saying"])}
+    except (json.JSONDecodeError, KeyError, TypeError):
+        return {"fix": "Could not generate coaching. Try again.", "try_saying": ""}
