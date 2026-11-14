@@ -34,6 +34,8 @@ export default function App() {
   const [answer, setAnswer] = useState('')
   const [answers, setAnswers] = useState([])
   const [listening, setListening] = useState(false)
+  const [scores, setScores] = useState([])
+  const [scoring, setScoring] = useState(false)
   const recognitionRef = useRef(null)
   const baseRef = useRef('')
 
@@ -106,6 +108,7 @@ export default function App() {
       if (data.gaps && data.gaps.length > 0) {
         setGaps(data.gaps)
         setAnswers([])
+        setScores([])
         setAnswer('')
         setIndex(0)
         setPhase('interview')
@@ -118,15 +121,39 @@ export default function App() {
     setLoading(false)
   }
 
+  async function scoreAnswers(list) {
+    setScoring(true)
+    setScores([])
+    try {
+      const results = await Promise.all(
+        list.map((a) =>
+          fetch('http://localhost:8000/score', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(a),
+          }).then((r) => r.json())
+        )
+      )
+      setScores(results)
+    } catch {
+      setMessage('Could not score your answers. Is the backend running?')
+    }
+    setScoring(false)
+  }
+
   function handleNext() {
     stopListening()
-    const updated = [...answers, { question: questions[index].question, answer }]
+    const updated = [
+      ...answers,
+      { question: questions[index].question, gap: questions[index].gap, answer },
+    ]
     setAnswers(updated)
     setAnswer('')
     if (index + 1 < questions.length) {
       setIndex(index + 1)
     } else {
       setPhase('done')
+      scoreAnswers(updated)
     }
   }
 
@@ -135,6 +162,7 @@ export default function App() {
     setPhase('input')
     setGaps([])
     setAnswers([])
+    setScores([])
     setAnswer('')
     setIndex(0)
     setMessage('')
@@ -236,11 +264,21 @@ export default function App() {
         {phase === 'done' && (
           <>
             <h2 className="text-xl font-semibold">Interview complete</h2>
+            {scoring && <p className="text-sm text-gray-500">Scoring your answers...</p>}
+            {message && <p className="text-sm text-red-600">{message}</p>}
             <div className="space-y-3">
               {answers.map((a, i) => (
                 <div key={i} className="border rounded-lg p-3 text-sm space-y-1">
                   <p className="font-medium">Q{i + 1}: {a.question}</p>
                   <p className="text-gray-700">{a.answer}</p>
+                  {scores[i] && (
+                    <p className="text-blue-700">
+                      <b>Hiring Manager:</b>{' '}
+                      {scores[i].score !== null ? scores[i].score + '/10' : 'No score'}
+                      {' - '}
+                      {scores[i].reason}
+                    </p>
+                  )}
                 </div>
               ))}
             </div>
