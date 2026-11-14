@@ -7,6 +7,7 @@ from fastapi import FastAPI, File, Form, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from google import genai
 from google.genai import types
+from pydantic import BaseModel
 from pypdf import PdfReader
 
 load_dotenv()
@@ -17,7 +18,7 @@ app = FastAPI()
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173"],
+    allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -30,6 +31,19 @@ Return ONLY JSON in exactly this shape:
 "evidence": "what the resume shows, or 'nothing found'",
 "gap": "why this is a weakness",
 "question": "one interview question that probes it"}]}"""
+
+HM_PROMPT = """You are a strict but fair hiring manager interviewing a fresher.
+The answer was captured by speech recognition, so ignore misheard words and spelling.
+Judge only the content: is it specific, honest and relevant to the question,
+with evidence such as projects, numbers or outcomes?
+Return ONLY JSON in exactly this shape:
+{"score": <integer from 1 to 10>, "reason": "<one sentence explaining the score>"}"""
+
+
+class ScoreRequest(BaseModel):
+    question: str
+    gap: str
+    answer: str
 
 
 def read_pdf(data: bytes) -> str:
@@ -81,3 +95,24 @@ async def gaps(resume: UploadFile = File(...), jd: str = Form(...)):
         return json.loads(response.text)
     except json.JSONDecodeError:
         return {"gaps": [], "error": "Could not read the AI reply. Try again."}
+
+
+@app.post("/score")
+def score(req: ScoreRequest):
+    prompt = (
+        HM_PROMPT
+        + "\n\nQUESTION: " + req.question
+        + "\nWHY IT WAS ASKED: " + req.gap
+        + "\nANSWER: " + req.answer[:3000]
+    )
+    client = genai.Client()
+    response = client.models.generate_content(
+        model=MODEL,
+        contents=prompt,
+        config=types.GenerateContentConfig(response_mime_type="application/json"),
+    )
+    try:
+        data = json.loads(response.text)
+        return {"score": int(data["score"]), "reason": str(data["reason"])}
+    except (json.JSONDecodeError, KeyError, ValueError, TypeError):
+        return {"score": None, "reason": "Could not score this answer. Try again."}
