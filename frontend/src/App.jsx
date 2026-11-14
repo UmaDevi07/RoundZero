@@ -22,6 +22,15 @@ function speak(text) {
   window.speechSynthesis.speak(utterance)
 }
 
+async function post(path, body) {
+  const res = await fetch('http://localhost:8000' + path, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  })
+  return res.json()
+}
+
 export default function App() {
   const [resume, setResume] = useState(null)
   const [jd, setJd] = useState('')
@@ -34,12 +43,16 @@ export default function App() {
   const [answer, setAnswer] = useState('')
   const [answers, setAnswers] = useState([])
   const [listening, setListening] = useState(false)
-  const [scores, setScores] = useState([])
+  const [results, setResults] = useState([])
   const [scoring, setScoring] = useState(false)
   const recognitionRef = useRef(null)
   const baseRef = useRef('')
 
   const questions = gaps.slice(0, 3)
+  const numeric = results.filter((r) => r && typeof r.score === 'number')
+  const average = numeric.length
+    ? (numeric.reduce((sum, r) => sum + r.score, 0) / numeric.length).toFixed(1)
+    : null
 
   useEffect(() => {
     fetch('http://localhost:8000/health')
@@ -108,7 +121,7 @@ export default function App() {
       if (data.gaps && data.gaps.length > 0) {
         setGaps(data.gaps)
         setAnswers([])
-        setScores([])
+        setResults([])
         setAnswer('')
         setIndex(0)
         setPhase('interview')
@@ -123,18 +136,15 @@ export default function App() {
 
   async function scoreAnswers(list) {
     setScoring(true)
-    setScores([])
+    setResults([])
     try {
-      const results = await Promise.all(
-        list.map((a) =>
-          fetch('http://localhost:8000/score', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(a),
-          }).then((r) => r.json())
-        )
+      const all = await Promise.all(
+        list.map(async (a) => {
+          const [s, c] = await Promise.all([post('/score', a), post('/coach', a)])
+          return { ...s, ...c }
+        })
       )
-      setScores(results)
+      setResults(all)
     } catch {
       setMessage('Could not score your answers. Is the backend running?')
     }
@@ -162,7 +172,7 @@ export default function App() {
     setPhase('input')
     setGaps([])
     setAnswers([])
-    setScores([])
+    setResults([])
     setAnswer('')
     setIndex(0)
     setMessage('')
@@ -266,18 +276,34 @@ export default function App() {
             <h2 className="text-xl font-semibold">Interview complete</h2>
             {scoring && <p className="text-sm text-gray-500">Scoring your answers...</p>}
             {message && <p className="text-sm text-red-600">{message}</p>}
+            {average && (
+              <div className="bg-blue-50 rounded-lg p-3">
+                <p className="text-sm text-blue-900">Overall score</p>
+                <p className="text-2xl font-bold text-blue-700">{average} / 10</p>
+              </div>
+            )}
             <div className="space-y-3">
               {answers.map((a, i) => (
-                <div key={i} className="border rounded-lg p-3 text-sm space-y-1">
+                <div key={i} className="border rounded-lg p-3 text-sm space-y-2">
                   <p className="font-medium">Q{i + 1}: {a.question}</p>
                   <p className="text-gray-700">{a.answer}</p>
-                  {scores[i] && (
-                    <p className="text-blue-700">
-                      <b>Hiring Manager:</b>{' '}
-                      {scores[i].score !== null ? scores[i].score + '/10' : 'No score'}
-                      {' - '}
-                      {scores[i].reason}
-                    </p>
+                  {results[i] && (
+                    <>
+                      <p className="text-blue-700">
+                        <b>Hiring Manager:</b>{' '}
+                        {typeof results[i].score === 'number' ? results[i].score + '/10' : 'No score'}
+                        {' - '}
+                        {results[i].reason}
+                      </p>
+                      <p className="text-green-700">
+                        <b>HR Coach:</b> {results[i].fix}
+                      </p>
+                      {results[i].try_saying && (
+                        <p className="text-gray-600 italic">
+                          Try saying: {results[i].try_saying}
+                        </p>
+                      )}
+                    </>
                   )}
                 </div>
               ))}
