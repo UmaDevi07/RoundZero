@@ -32,7 +32,7 @@ RoundZero is a voice-to-voice AI mock interview built around **your resume and t
 - [x] Resume + JD parsing and gap detection
 - [x] Interview screen (one question at a time)
 - [x] Voice in and out
-- [ ] Dual-agent scorecard
+- [x] Dual-agent scorecard
 - [ ] Avatar interviewer
 - [ ] Public demo
 
